@@ -139,5 +139,5 @@ networks:
   app-network:
     driver: bridge
     name: app-network
-env_file:
+  env_file:
   - .env
