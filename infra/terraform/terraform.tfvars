@@ -1,6 +1,9 @@
 aws_region           = "us-east-1"
 project_name         = "hng-todo-app"
-instance_type        = "t3.micro"
+instance_type        = "t3.medium"
+credit_specification {
+    cpu_credits = "unlimited"
+  }
 ssh_public_key_path  = "~/.ssh/hamsa-hng-app.pub"
 ssh_private_key_path = "~/.ssh/hamsa-hng-app"
 domain               = "hamsa.servegame.com"
