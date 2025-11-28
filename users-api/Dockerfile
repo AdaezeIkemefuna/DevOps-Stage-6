@@ -18,4 +18,4 @@ COPY --from=builder /app/target/*.jar app.jar
 
 EXPOSE 8083
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "--add-opens", "java.base/java.lang=ALL-UNNAMED", "-jar", "app.jar"]
