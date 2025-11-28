@@ -6,6 +6,8 @@ COPY package*.json ./
 
 RUN npm ci --only=production
 
+RUN npm install -g nodemon
+
 COPY . .
 
 EXPOSE 8082
