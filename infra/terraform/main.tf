@@ -148,7 +148,7 @@ resource "local_file" "ansible_inventory" {
 
 # Trigger Ansible
 resource "null_resource" "run_ansible" {
-  depends_on = [local_file.ansible_inventory]
+  depends_on = [local_file.ansible_inventory, aws_instance.app_server]
 
   triggers = {
     instance_id = aws_instance.app_server.id
@@ -160,7 +160,7 @@ resource "null_resource" "run_ansible" {
       echo "Waiting for instance to be ready..."
       sleep 60
       cd ${path.module}/../ansible
-      ansible-playbook -i inventory.ini playbook.yml
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini playbook.yml
     EOT
   }
 }
