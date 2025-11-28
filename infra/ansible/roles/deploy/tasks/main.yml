@@ -30,6 +30,14 @@
   become: yes
   register: env_file
 
+- name: Fix .env file permissions
+  file:
+    path: /opt/todo-app/.env
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  become: yes
+
 - name: Create letsencrypt directory
   file:
     path: /opt/todo-app/letsencrypt
