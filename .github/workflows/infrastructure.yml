@@ -32,12 +32,9 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform Init with Migration
+      - name: Terraform Init
         working-directory: ./infra/terraform
-        run: |
-          terraform init -migrate-state -input=false
-        env:
-          TF_INPUT: false
+        run: terraform init -migrate-state
 
       - name: Terraform Format
         working-directory: ./infra/terraform
