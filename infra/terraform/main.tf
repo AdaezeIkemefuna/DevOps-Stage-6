@@ -117,7 +117,7 @@ resource "aws_security_group" "app_server" {
 # OPTION A: Use your existing key (RECOMMENDED)
 resource "aws_key_pair" "this" {
   key_name   = "${var.project_name}-key"
-  public_key = file(pathexpand(var.ssh_public_key_path))
+  public_key = var.ssh_private_key_content
 }
 
 # OPTION B: Generate new key (COMMENT OUT OPTION A IF USING THIS)
