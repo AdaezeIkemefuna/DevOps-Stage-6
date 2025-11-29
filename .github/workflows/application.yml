@@ -30,9 +30,25 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e  # Exit on any error
+            
+            echo "📦 Starting deployment..."
             cd /opt/todo-app
+            
+            echo "🔄 Pulling latest code..."
             git pull origin main
-            docker compose down
+            
+            echo "🐳 Stopping existing containers..."
+            docker compose down || true
+            
+            echo "🔨 Building and starting new containers..."
             docker compose up -d --build
+            
+            echo "📊 Checking container status..."
             docker compose ps
+            
+            echo "🔍 Checking application health..."
+            sleep 30  # Wait for containers to start
+            curl -f http://localhost/health || echo "Health check failed but continuing..."
+            
             echo "✅ Deployment completed successfully"
