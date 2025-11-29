@@ -23,32 +23,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -e  # Exit on any error
-            
-            echo "📦 Starting deployment..."
+      - name: Deploy using native SSH
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
             cd /opt/todo-app
-            
-            echo "🔄 Pulling latest code..."
             git pull origin main
-            
-            echo "🐳 Stopping existing containers..."
-            docker compose down || true
-            
-            echo "🔨 Building and starting new containers..."
+            docker compose down
             docker compose up -d --build
-            
-            echo "📊 Checking container status..."
             docker compose ps
-            
-            echo "🔍 Checking application health..."
-            sleep 30  # Wait for containers to start
-            curl -f http://localhost/health || echo "Health check failed but continuing..."
-            
-            echo "✅ Deployment completed successfully"
+          EOF
