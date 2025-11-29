@@ -115,27 +115,20 @@ resource "aws_security_group" "app_server" {
 # EC2 Key Pair (USE ONLY ONE - CHOOSE OPTION A OR B)
 
 # OPTION A: Use your existing key (RECOMMENDED)
-resource "aws_key_pair" "this" {
-  key_name   = "${var.project_name}-key"
-  public_key = var.ssh_private_key_content
+#resource "aws_key_pair" "this" {
+ # key_name   = "${var.project_name}-key"
+  #  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDQGwlTWuGdDygRV92PyTlI8GUuWpdVzjkvoxBR5qPOJiLQRU0xti4tP3/FXa89fg3Gv5mLfjqTXJpImiVcB2CYMyjHODzr29MkH+retTADvm2Y5s370HnnQWP5Q8T6FnbzZh388WTYW7IoSMFdLuI4qH/2TlcAyWkfzXBCX0NXDkP13ZGAntID7aivhEzNZXe0hBL9hlSECDan4QpWPaiIq9OFWsON9pQhBCEyOG0vobQJfDt2LB1EBwOxZpKu0UC/Oegc89SlJI23UwX5k29nVaD1LbjA0OkKiGnRYc8SNrRp2s8G/BZP0DgwHP4fA/H8epnRAuM4TkshnQZ4nlVMQFsUhzh4CQzS691GtUIb21E93qK78dBHdLmtEaQVGeUtJdSf6ZkIxQQbjbsxhKH00l2Uu1e8rB6IeViGGQXWqnM1cTLfyJ8ca8YMgOqxesvxhMJeWs7LVzf53AYLcq2AtsepcNX9s9fRILElkXjeRxCE6h0mSuxDCSCv4yAR4OF18s4P2yNPRkNVUNxwX9pA8PAz0yj8T3Z0Ouu3jADYQYvbH//t3GQV5QZ4MtF8rPBopXucUAC+0gJVJpv47+TORzu9SArQ== hamsaikemefuna@gmail.com"
+#}
+
+resource "tls_private_key" "generated" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-# OPTION B: Generate new key (COMMENT OUT OPTION A IF USING THIS)
-# resource "tls_private_key" "generated" {
-#   algorithm = "RSA"
-#   rsa_bits  = 4096
-# }
-# 
-# resource "aws_key_pair" "generated_key" {
-#   key_name   = "${var.project_name}-key"
-#   public_key = tls_private_key.generated.public_key_openssh
-# }
-# 
-# resource "local_file" "private_key" {
-#   content  = tls_private_key.generated.private_key_pem
-#   filename = "${path.module}/hng-key.pem"
-#   file_permission = "0400"
-# }
+resource "aws_key_pair" "this" {
+  key_name   = "${var.project_name}-key"
+  public_key = tls_private_key.generated.public_key_openssh
+}
 
 # Data Sources
 data "aws_ami" "ubuntu" {
