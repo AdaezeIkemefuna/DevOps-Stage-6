@@ -34,7 +34,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: ./infra/terraform
-        run: terraform init -migrate-state
+        run: terraform init -reconfigure -input=false
 
       - name: Terraform Format
         working-directory: ./infra/terraform
