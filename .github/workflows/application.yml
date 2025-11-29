@@ -23,25 +23,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy via AWS Systems Manager
+      - name: Deploy via SSH
         run: |
-          aws ssm send-command \
-            --instance-ids i-06d75bc4b855c2965 \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "cd /opt/todo-app",
-              "sudo -u ubuntu git pull origin main",
-              "sudo -u ubuntu docker compose down",
-              "sudo -u ubuntu docker compose up -d --build",
-              "sudo -u ubuntu docker compose ps"
-            ]' \
-            --output text
-          
-          echo "✅ Deployment command sent via AWS Systems Manager"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.SERVER_IP }} "
+            cd /opt/todo-app
+            git pull origin main
+            docker compose down
+            docker compose up -d --build
+            docker compose ps
+          "
+          rm -f key.pem
