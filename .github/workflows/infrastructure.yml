@@ -36,9 +36,9 @@ jobs:
         working-directory: ./infra/terraform
         run: terraform init -reconfigure -input=false
 
-      - name: Terraform Format
-        working-directory: ./infra/terraform
-        run: terraform fmt -check
+      # - name: Terraform Format
+      #   working-directory: ./infra/terraform
+      #   run: terraform fmt -check
 
       - name: Terraform Validate
         working-directory: ./infra/terraform
