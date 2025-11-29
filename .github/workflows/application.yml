@@ -23,14 +23,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy using native SSH
+      - name: Debug Network Connectivity
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
-          chmod 600 key.pem
-          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
+          echo "🔍 Network Diagnostics:"
+          echo "GitHub Runner IP: $(curl -s ifconfig.me)"
+          echo "Target Server: ${{ secrets.SERVER_IP }}"
+          
+          # Test basic connectivity
+          echo "Testing port 22..."
+          timeout 5 bash -c "echo > /dev/tcp/${{ secrets.SERVER_IP }}/22" && echo "✅ Port 22 is open" || echo "❌ Port 22 is closed"
+          
+          # Test SSH key format
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > test_key.pem
+          chmod 600 test_key.pem
+          ssh-keygen -l -f test_key.pem && echo "✅ SSH key valid" || echo "❌ SSH key invalid"
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 30s
+          script: |
+            echo "✅ Connected successfully!"
             cd /opt/todo-app
             git pull origin main
             docker compose down
             docker compose up -d --build
             docker compose ps
-          EOF
