@@ -170,7 +170,8 @@ resource "aws_instance" "app_server" {
 
   user_data = <<-EOF
               #!/bin/bash
-              hostnamectl set-hostname ${var.project_name}-server
+              # Remove any invalid characters from hostname
+              hostnamectl set-hostname ${replace(var.project_name, "_", "-")}-server
               EOF
 
   tags = {
@@ -178,7 +179,7 @@ resource "aws_instance" "app_server" {
   }
 
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
 }
 
@@ -198,20 +199,3 @@ resource "local_file" "ansible_inventory" {
 }
 
 # Trigger Ansible
-resource "null_resource" "run_ansible" {
-  depends_on = [local_file.ansible_inventory, aws_instance.app_server]
-
-  triggers = {
-    instance_id = aws_instance.app_server.id
-    always_run  = timestamp()
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-      echo "Waiting for instance to be ready..."
-      sleep 60
-      cd ${path.module}/../ansible
-      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini playbook.yml
-    EOT
-  }
-}

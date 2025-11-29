@@ -1,14 +1,14 @@
 output "server_public_ip" {
-  description = "Public IP of the app server"
+  description = "Public IP of the EC2 instance"
   value       = aws_instance.app_server.public_ip
 }
 
-output "server_id" {
-  description = "Instance ID"
+output "instance_id" {
+  description = "ID of the EC2 instance"
   value       = aws_instance.app_server.id
 }
 
 output "ssh_command" {
-  description = "SSH command to connect to server"
-  value       = "ssh -i ${var.ssh_private_key_path} ubuntu@${aws_instance.app_server.public_ip}"
+  description = "SSH command to connect to the instance"
+  value       = "ssh -i ~/.ssh/hamsa-hng-app ubuntu@${aws_instance.app_server.public_ip}"
 }
