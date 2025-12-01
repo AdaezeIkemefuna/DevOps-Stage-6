@@ -122,7 +122,7 @@ jobs:
   terraform-apply:
     name: Apply Approved Changes
     needs: [terraform-plan, approve-drift-changes]
-    if: always() && (needs.approve-drift-changes.result == 'success' || needs.terraform-plan.outputs.has_changes != 'true')
+    if: success() && (needs.terraform-plan.outputs.has_changes != 'true' || needs.approve-drift-changes.result == 'success')
     runs-on: ubuntu-latest
     
     steps:
