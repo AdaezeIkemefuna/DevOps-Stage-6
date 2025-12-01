@@ -12,3 +12,8 @@ output "ssh_command" {
   description = "SSH command to connect to the instance"
   value       = "ssh -i ~/.ssh/hamsa-hng-app ubuntu@${aws_instance.app_server.public_ip}"
 }
+
+output "elastic_ip" {
+  description = "Elastic IP address (static)"
+  value       = aws_eip.this.public_ip
+}

@@ -70,6 +70,19 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# Elastic IP for static IP address
+resource "aws_eip" "this" {
+  domain = "vpc"
+  
+  tags = {
+    Name = "${var.project_name}-eip"
+  }
+}
+resource "aws_eip_association" "this" {
+  instance_id   = aws_instance.app_server.id
+  allocation_id = aws_eip.this.id
+}
+
 # Security Group
 resource "aws_security_group" "app_server" {
   name        = "${var.project_name}-server-sg"
@@ -151,29 +164,32 @@ resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
   
-  subnet_id                   = aws_subnet.public.id
-  vpc_security_group_ids      = [aws_security_group.app_server.id]
-  key_name                    = aws_key_pair.this.key_name  # FIXED: was aws_key_pair.deployer
-  associate_public_ip_address = true
-
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.app_server.id]
+  key_name               = aws_key_pair.this.key_name
+  
+  associate_public_ip_address = false 
+  
   root_block_device {
-    volume_size = 20  # Reduced from 30GB to stay closer to free tier
+    volume_size = 20
     volume_type = "gp3"
   }
 
   user_data = <<-EOF
               #!/bin/bash
-              # Remove any invalid characters from hostname
               hostnamectl set-hostname ${replace(var.project_name, "_", "-")}-server
               EOF
 
   tags = {
-    Name = "${var.project_name}-server"
+    Name        = "${var.project_name}-server"
+    Environment = "production"
   }
 
   lifecycle {
     ignore_changes = [ami, user_data]
   }
+  
+  depends_on = [aws_eip.this]  # ← MOVED HERE
 }
 
 # Generate Ansible Inventory
@@ -190,5 +206,7 @@ resource "local_file" "ansible_inventory" {
 
   depends_on = [aws_instance.app_server]
 }
+
+
 
 # Trigger Ansible

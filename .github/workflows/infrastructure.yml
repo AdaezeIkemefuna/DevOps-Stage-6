@@ -4,9 +4,10 @@ on:
   push:
     paths:
       - 'infra/terraform/**'
-      - 'infra/ansible/**'
+    branches:
+      - main
   schedule:
-    - cron: '0 9 * * 1-5'  # Every weekday at 9 AM UTC
+    - cron: '0 9 * * 1-5'  # Weekdays 9 AM UTC for drift detection
   workflow_dispatch:
 
 env:
@@ -40,17 +41,16 @@ jobs:
         working-directory: ./infra/terraform
         run: terraform init -reconfigure -input=false
 
-      - name: Terraform Validate
-        working-directory: ./infra/terraform
-        run: terraform validate
-
       - name: Terraform Plan for Drift Detection
         id: plan
         working-directory: ./infra/terraform
         run: |
-          terraform plan -detailed-exitcode > plan_output.txt 2>&1 || true
+          terraform plan -no-color -input=false > plan_output.txt
           cat plan_output.txt
-          echo "plan_output_saved=true" >> $GITHUB_OUTPUT
+          
+          # Save plan for later use
+          terraform plan -out=tfplan -input=false
+          echo "plan_exists=true" >> $GITHUB_OUTPUT
 
       - name: Check for Infrastructure Drift
         id: drift_check
@@ -61,23 +61,26 @@ jobs:
             echo "No infrastructure drift detected"
           else
             echo "drift_detected=true" >> $GITHUB_OUTPUT
-            echo "Infrastructure drift detected!"
+            echo "🚨 Infrastructure drift detected!"
             
-            # Create summary of changes
-            echo "## Drift Summary" >> $GITHUB_STEP_SUMMARY
-            echo "```" >> $GITHUB_STEP_SUMMARY
-            grep -A5 -B5 "Plan:" plan_output.txt | head -20 >> $GITHUB_STEP_SUMMARY
-            echo "```" >> $GITHUB_STEP_SUMMARY
+            # Create GitHub summary
+            echo "## 🚨 Terraform Drift Detected" >> $GITHUB_STEP_SUMMARY
+            echo "The following changes were detected:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            grep -A 20 "Plan:" plan_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Manual approval required to apply these changes.**" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload Drift Report
+      - name: Upload Terraform Plan
         if: steps.drift_check.outputs.drift_detected == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-drift-report
-          path: infra/terraform/plan_output.txt
+          name: terraform-plan
+          path: infra/terraform/tfplan
 
-      - name: Send Drift Alert Email
+      - name: Send Drift Detection Email
         if: steps.drift_check.outputs.drift_detected == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
@@ -85,41 +88,41 @@ jobs:
           server_port: 587
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 'Terraform Drift Detected - HNG Todo App'
+          subject: '🚨 Terraform Drift Detected - HNG Todo App'
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: HNG DevOps Bot
           body: |
-            Infrastructure drift has been detected!
+            Infrastructure drift has been detected in your HNG Todo App!
             
-            Changes detected between Terraform state and actual infrastructure.
+            ⚠️ The following changes were detected between Terraform state and actual infrastructure:
             
-            Review the changes in the GitHub Actions run:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             
-            Changes will NOT be applied automatically. Manual approval is required.
+            **Manual approval is required** before these changes can be applied.
             
             ---
-            Project: HNG Todo App
             Environment: Production
             Timestamp: $(date)
 
-  approve-changes:
-    name: Manual Approval for Drift
+  approve-drift-changes:
+    name: ⚠️ Manual Approval Required
     needs: terraform-plan
     if: needs.terraform-plan.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
+    
+    # REQUIRES manual approval in GitHub UI
     environment:
       name: production
       url: https://hamsa.servegame.com
     
     steps:
-      - name: Wait for approval
-        run: echo "Waiting for manual approval to apply drift corrections..."
+      - name: Wait for manual approval
+        run: echo "Changes approved manually via GitHub UI"
 
   terraform-apply:
-    name: Apply Drift Corrections
-    needs: [terraform-plan, approve-changes]
-    if: always() && (needs.approve-changes.result == 'success' || needs.terraform-plan.outputs.has_changes != 'true')
+    name: Apply Approved Changes
+    needs: [terraform-plan, approve-drift-changes]
+    if: always() && (needs.approve-drift-changes.result == 'success' || needs.terraform-plan.outputs.has_changes != 'true')
     runs-on: ubuntu-latest
     
     steps:
@@ -142,43 +145,42 @@ jobs:
         working-directory: ./infra/terraform
         run: terraform init -reconfigure -input=false
 
-      - name: Download Drift Report
+      - name: Download Terraform Plan
         if: needs.terraform-plan.outputs.has_changes == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: terraform-drift-report
+          name: terraform-plan
           path: infra/terraform/
 
       - name: Terraform Apply
         working-directory: ./infra/terraform
         run: |
-          if [ -f plan_output.txt ] && grep -q "Plan:" plan_output.txt; then
-            echo "Applying drift corrections..."
-            terraform apply -auto-approve -input=false
-            echo "Drift corrections applied successfully"
+          if [ -f tfplan ] && needs.terraform-plan.outputs.has_changes == 'true'; then
+            echo "🔄 Applying approved changes..."
+            terraform apply -auto-approve -input=false tfplan
+            echo "✅ Changes applied successfully"
           else
-            echo "No drift to correct"
+            echo "✅ No changes to apply"
           fi
 
       - name: Send Success Notification
-        if: success()
+        if: success() && needs.terraform-plan.outputs.has_changes == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 587
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: 'Infrastructure Drift Corrected'
+          subject: '✅ Terraform Drift Corrected - HNG Todo App'
           to: ${{ secrets.NOTIFICATION_EMAIL }}
           from: HNG DevOps Bot
           body: |
             Infrastructure drift has been successfully corrected!
             
-            All changes have been applied and infrastructure is now synchronized with Terraform configuration.
+            ✅ All approved changes have been applied to production.
             
-            Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            View run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
             
             ---
-            Project: HNG Todo App
             Environment: Production
             Timestamp: $(date)
