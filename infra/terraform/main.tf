@@ -143,6 +143,11 @@ resource "aws_key_pair" "this" {
   public_key = tls_private_key.generated.public_key_openssh
 }
 
+# Use existing IAM instance profile for SSM
+data "aws_iam_instance_profile" "ec2_profile" {
+  name = "hng-todo-app-ec2-ssm-profile"
+}
+
 # Data Sources
 data "aws_ami" "ubuntu" {
   most_recent = true
@@ -163,11 +168,12 @@ data "aws_ami" "ubuntu" {
 resource "aws_instance" "app_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
-  
+
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app_server.id]
   key_name               = aws_key_pair.this.key_name
-  
+  iam_instance_profile   = data.aws_iam_instance_profile.ec2_profile.name
+
   associate_public_ip_address = false 
   
   root_block_device {
@@ -210,3 +216,19 @@ resource "local_file" "ansible_inventory" {
 
 
 # Trigger Ansible
+resource "null_resource" "run_ansible" {
+  depends_on = [local_file.ansible_inventory, aws_instance.app_server]
+
+  triggers = {
+    instance_id = aws_instance.app_server.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Waiting for instance to be ready..."
+      sleep 60
+      cd ${path.module}/../ansible
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.ini playbook.yml
+    EOT
+  }
+}

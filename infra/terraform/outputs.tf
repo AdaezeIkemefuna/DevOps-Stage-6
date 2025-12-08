@@ -17,3 +17,9 @@ output "elastic_ip" {
   description = "Elastic IP address (static)"
   value       = aws_eip.this.public_ip
 }
+
+output "private_key_pem" {
+  description = "Private SSH key to connect to the instance"
+  value       = tls_private_key.generated.private_key_pem
+  sensitive   = true
+}
